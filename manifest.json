@@ -1,0 +1,12 @@
+{
+  "name": "ScrollHotbar",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/LGNDPhantom/ScrollHotbar",
+  "description": "Scroll through the hotbar with the mouse wheel. Hold Ctrl to zoom the camera.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2100"
+  ],
+  "authors": [
+    "Kuro Phantom"
+  ]
+}
