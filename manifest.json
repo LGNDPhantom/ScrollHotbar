@@ -1,6 +1,6 @@
 {
   "name": "ScrollHotbar",
-  "version_number": "1.0.0",
+  "version_number": "2.0.0",
   "website_url": "https://github.com/LGNDPhantom/ScrollHotbar",
   "description": "Scroll through the hotbar with the mouse wheel. Hold Ctrl to zoom the camera.",
   "dependencies": [

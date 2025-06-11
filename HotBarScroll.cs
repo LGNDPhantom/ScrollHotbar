@@ -1,28 +1,50 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
+using BepInEx.Configuration;
 using HarmonyLib;
 using System.Reflection;
 using UnityEngine;
 
 namespace ScrollHotbar
 {
-    [BepInPlugin(pluginGUID, pluginName, pluginVersion)]
+    [BepInPlugin("com.kurophantom.scrollhotbar", "HotbarScroll", "1.2.4")]
     public class Main : BaseUnityPlugin
     {
-        const string pluginGUID = "com.kurophantom.scrollhotbar";
-        const string pluginName = "HotbarScroll";
-        const string pluginVersion = "1.0.0";
+        private readonly Harmony HarmonyInstance = new Harmony("com.kurophantom.scrollhotbar");
+        private ManualLogSource logger;
 
-        private readonly Harmony HarmonyInstance = new Harmony(pluginGUID);
-        public static ManualLogSource logger = BepInEx.Logging.Logger.CreateLogSource(pluginName);
+        private ConfigEntry<KeyCode> keybindPreview;
+        private ConfigEntry<bool> invertScroll;
 
         private int currentIndex = 0;
         private float savedZoom;
 
+        private float scrollTimer = 0f;
+        private float scrollDelay = 0.1f;
+        private bool pendingEquip = false;
+
+        private float lastScrollValue = 0f;
+        private bool scrollJustEnded = false;
+
         public void Awake()
         {
             HarmonyInstance.PatchAll();
+            logger = Logger;
             logger.LogInfo("HotbarScroll mod loaded!");
+
+            keybindPreview = Config.Bind(
+                "Hotbar Scroll Settings",
+                "Preview Key",
+                KeyCode.LeftControl,
+                "Key used to activate hotbar preview scrolling."
+            );
+
+            invertScroll = Config.Bind(
+                "Hotbar Scroll Settings",
+                "Invert Scroll Direction",
+                false,
+                "If true, scrolling up selects lower hotbar slots and vice versa."
+            );
         }
 
         public void Update()
@@ -30,36 +52,50 @@ namespace ScrollHotbar
             if (Player.m_localPlayer == null || GameCamera.instance == null) return;
 
             float scroll = Input.GetAxis("Mouse ScrollWheel");
+            bool isPreviewing = Input.GetKey(keybindPreview.Value);
+            int direction = scroll > 0f ? 1 : scroll < 0f ? -1 : 0;
+            if (invertScroll.Value) direction *= -1;
+
             GameCamera cam = GameCamera.instance;
 
-            if (Input.GetKey(KeyCode.LeftControl))
+            // Save zoom when entering preview
+            if (isPreviewing)
             {
-                // Allow the player to zoom naturally, and store the current zoom
                 savedZoom = GetCameraZoom(cam);
             }
-            else if (Mathf.Abs(Input.GetAxis("Mouse ScrollWheel")) < 0.01f)
+
+            // Detect scroll end
+            scrollJustEnded = (lastScrollValue != 0f && Mathf.Approximately(scroll, 0f));
+            lastScrollValue = scroll;
+
+            if (!isPreviewing && scrollJustEnded)
             {
-                // Only restore zoom when NOT scrolling — this avoids jitter or interfering with input
                 float currentZoom = GetCameraZoom(cam);
-                if (!Mathf.Approximately(currentZoom, savedZoom))
-                {
+                if (Mathf.Abs(currentZoom - savedZoom) > 0.0005f)
                     SetCameraZoom(cam, savedZoom);
-                }
             }
 
-
-            // Only handle hotbar scrolling if Ctrl is NOT held
-            if (!Input.GetKey(KeyCode.LeftControl))
+            if (!isPreviewing && direction != 0)
             {
-                if (scroll > 0)
+                if (direction > 0)
                     currentIndex = (currentIndex + 1) % 9;
-                else if (scroll < 0)
+                else if (direction < 0)
                     currentIndex = (currentIndex + 7) % 8;
 
-                if (scroll != 0)
+                scrollTimer = scrollDelay;
+                pendingEquip = true;
+
+                logger.LogInfo($"Queued slot: {currentIndex + 1}");
+            }
+
+            if (pendingEquip)
+            {
+                scrollTimer -= Time.deltaTime;
+                if (scrollTimer <= 0f)
                 {
                     Player.m_localPlayer.UseHotbarItem(currentIndex);
-                    logger.LogInfo($"Switched to hotbar slot: {currentIndex + 1}");
+                    logger.LogInfo($"Equipped slot: {currentIndex + 1}");
+                    pendingEquip = false;
                 }
             }
         }
@@ -67,14 +103,14 @@ namespace ScrollHotbar
         private float GetCameraZoom(GameCamera cam)
         {
             return (float)typeof(GameCamera)
-                .GetField("m_distance", BindingFlags.NonPublic | BindingFlags.Instance)
+                .GetField("m_distance", BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(cam);
         }
 
         private void SetCameraZoom(GameCamera cam, float value)
         {
             typeof(GameCamera)
-                .GetField("m_distance", BindingFlags.NonPublic | BindingFlags.Instance)
+                .GetField("m_distance", BindingFlags.Instance | BindingFlags.NonPublic)
                 .SetValue(cam, value);
         }
     }
