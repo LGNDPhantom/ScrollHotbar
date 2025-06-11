@@ -42,7 +42,7 @@ ScrollHotbar is a simple quality-of-life mod for **Valheim** that lets you cycle
 
 ## 🔧 Configuration
 
-This mod has no config options currently. Future versions may support custom hotkeys or slot behavior.
+Keybind Change and Scroll Invert in F1 Menu
 
 ## 🐞 Known Issues
 
